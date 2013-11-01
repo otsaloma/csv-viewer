@@ -1,0 +1,220 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8-unix -*-
+
+# Copyright (C) 2013 Osmo Salomaa
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+"""
+Viewer for tabular data files.
+
+Column separators (comma, semicolon, tab, etc.) are auto-recognized
+as well as whether the table has a header row or not. Data is loaded
+in background with idle-priority allowing a quick look at a large file
+while (hopefully) providing a responsive user interface.
+"""
+
+import csv
+import optparse
+import os
+import re
+
+from gi.repository import Gdk
+from gi.repository import GObject
+from gi.repository import Gtk
+
+ENCODINGS = ("utf_8", "cp1252", "latin_1")
+RE_RIGHT_ALIGN = re.compile(r"^([\d\W]+|NA|NAN|TRUE|FALSE)$", re.IGNORECASE)
+
+
+def destroy(*args):
+    """Exit."""
+    try:
+        Gtk.main_quit()
+    except RuntimeError:
+        raise SystemExit(1)
+
+def get_zebra_color(view):
+    """Return background color to use for `view` zebra-stripes."""
+    style = view.get_style_context()
+    fg = style.get_color(Gtk.StateFlags.NORMAL)
+    bg = style.get_background_color(Gtk.StateFlags.NORMAL)
+    color = Gdk.RGBA()
+    color.red =   0.9 * bg.red   + 0.1 * fg.red
+    color.green = 0.9 * bg.green + 0.1 * fg.green
+    color.blue =  0.9 * bg.blue  + 0.1 * fg.blue
+    return(color)
+
+def init_column(n, view):
+    """Initialize and return the `n`th tree view column."""
+    renderer = Gtk.CellRendererText()
+    renderer.props.xalign = 1
+    renderer.set_fixed_height_from_font(1)
+    column = Gtk.TreeViewColumn(str(n), renderer, text=n)
+    column.props.resizable = True
+    if n == 0:
+        renderer.props.foreground = "#aaaaaa"
+        # Force zebra colors, since some themes ignore
+        # Gtk.TreeView.props.rules_hint.
+        column.set_cell_data_func(renderer, render_cell, view)
+    return column
+
+def init_view(ncolumns):
+    """Initialize and return a blank tree view."""
+    view = Gtk.TreeView()
+    view.props.rubber_banding = True
+    view.props.rules_hint = True
+    selection = view.get_selection()
+    selection.props.mode = Gtk.SelectionMode.MULTIPLE
+    columns = [str for x in range(ncolumns)]
+    store = Gtk.ListStore(*columns)
+    view.props.model = store
+    for i in range(ncolumns):
+        view.append_column(init_column(i, view))
+    return view
+
+def init_window(title, geometry, view):
+    """Initialize and return a window."""
+    scroller = Gtk.ScrolledWindow()
+    scroller.set_policy(Gtk.PolicyType.AUTOMATIC,
+                        Gtk.PolicyType.AUTOMATIC)
+
+    scroller.add(view)
+    scroller.show_all()
+    window = Gtk.Window()
+    window.connect("delete-event", destroy)
+    window.connect("key-press-event", on_window_key_press_event)
+    window.set_title(title)
+    window.set_position(Gtk.WindowPosition.CENTER)
+    window.parse_geometry(geometry)
+    window.add(scroller)
+    return window
+
+def load_chunk(reader, view):
+    """Load rows in `reader` to `view`."""
+    store = view.get_model()
+    columns = view.get_columns()
+    renderers = [x.get_cells()[0] for x in columns]
+    for i, row in enumerate(reader):
+        row.insert(0, str(i+1))
+        row.append("")
+        row = map_to_unicode(row)
+        for j, item in enumerate(row):
+            if renderers[j].props.xalign > 0.001:
+                if not RE_RIGHT_ALIGN.search(item):
+                    yalign = renderers[j].props.yalign
+                    renderers[j].set_alignment(0, yalign)
+        store.append(row)
+        if i < 10 or i % 10 == 0:
+            while Gtk.events_pending():
+                Gtk.main_iteration()
+            yield True # to be called again.
+    yield False # to not be called again.
+
+def main():
+    """Parse arguments and display CSV file."""
+    opts, path = parse_arguments()
+    fobj = open(file=path,
+                mode="r",
+                encoding=ENCODINGS[0],
+                errors="surrogateescape",
+                newline="")
+
+    dialect, has_header = sniff(fobj)
+    reader = csv.reader(fobj, dialect)
+    first_row = next(reader)
+    view = init_view(len(first_row)+2)
+    title = os.path.basename(path)
+    window = init_window(title, opts.geometry, view)
+    window.show_all()
+    if has_header:
+        set_headers(view, first_row)
+    else:
+        fobj.seek(0)
+    loader = load_chunk(reader, view)
+    GObject.idle_add(loader.__next__)
+    Gtk.main()
+
+def map_to_unicode(x):
+    """Return `x` as Unicode strings."""
+    if isinstance(x, (list, tuple)):
+        return list(map(map_to_unicode, x))
+    x = x.encode("utf_8", "surrogateescape")
+    for encoding in ENCODINGS:
+        try:
+            return x.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return x.decode(ENCODINGS[0], errors="replace")
+
+def on_window_key_press_event(window, event):
+    """Exit if a commonly associated key is pressed."""
+    if (event.keyval == Gdk.KEY_Escape or
+        (event.get_state() & Gdk.ModifierType.CONTROL_MASK and
+         event.keyval in (Gdk.KEY_w, Gdk.KEY_q))):
+        destroy()
+
+def render_cell(column, renderer, store, itr, view):
+    """Set background color zebra-stripes."""
+    path = view.get_model().get_path(itr)
+    row = path.get_indices()[0]
+    if not hasattr(view, "zebra_color"):
+        view.zebra_color = get_zebra_color(view)
+    color = (view.zebra_color if row % 2 == 0 else None)
+    for column in view.get_columns():
+        for renderer in column.get_cells():
+            renderer.props.cell_background_rgba = color
+
+def parse_arguments():
+    """Parse and return options and argument or exit."""
+    usage = "csv-viewer [-g GEOMETRY] CSV_FILE"
+    parser = optparse.OptionParser(usage=usage)
+    parser.add_option("-g", "--geometry",
+                      action="store",
+                      type="str",
+                      metavar="GEOMETRY",
+                      dest="geometry",
+                      default="800x494",
+                      help="Set geometry as WIDTHxHEIGHT+XOFFSET+YOFFSET")
+
+    opts, args = parser.parse_args()
+    if len(args) < 1 or not os.path.isfile(args[0]):
+        raise SystemExit("Usage: {}".format(usage))
+    return opts, args[0]
+
+def set_headers(view, row):
+    """Set `row` as column headers."""
+    row = map_to_unicode(row)
+    row.insert(0, "#")
+    row.append("")
+    for i, title in enumerate(row):
+        title = title.replace("_", "__")
+        column = view.get_column(i)
+        column.props.title = title
+
+def sniff(fobj):
+    """Guess and return `fobj` dialect header."""
+    sniffer = csv.Sniffer()
+    sample = fobj.read(32768)
+    fobj.seek(0)
+    dialect = sniffer.sniff(sample)
+    has_header = sniffer.has_header(sample)
+    # XXX: Sniffer fails to detect the existance
+    # of a header if all columns hold strings.
+    has_header = True
+    return dialect, has_header
+
+
+if __name__ == "__main__":
+    main()

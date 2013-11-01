@@ -1,0 +1,14 @@
+csv-viewer
+==========
+
+csv-viewer is a viewer for tabular data files. Column separators (comma,
+semicolon, tab, etc.) are auto-recognized as well as whether the table
+has a header row or not. Data is loaded in background with idle-priority
+allowing a quick look at a large file while (hopefully) providing a
+responsive user interface.
+
+csv-viewer requires Python 3.0 or greater [1] and PyGObject 3.0.0
+or greater [2].
+
+ [1] http://www.python.org/
+ [2] https://wiki.gnome.org/PyGObject
