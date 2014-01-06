@@ -1,8 +1,9 @@
 # -*- coding: us-ascii-unix -*-
-prefix = /usr/local
+
+DESTDIR =
+PREFIX  = /usr/local
+bindir  = $(DESTDIR)$(PREFIX)/bin
 
 install:
-	cp -v csv-viewer $(prefix)/bin
-
-uninstall:
-	rm -fv $(prefix)/bin/csv-viewer
+	mkdir -p $(bindir)
+	cp csv-viewer $(bindir)

@@ -1,1 +1,1 @@
-To install, edit desired prefix into Makefile and run 'make install'.
+To install, run 'make PREFIX=... install'.
