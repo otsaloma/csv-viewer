@@ -149,7 +149,7 @@ def main():
 def map_to_unicode(x):
     """Return `x` as Unicode strings."""
     if isinstance(x, (list, tuple)):
-        return list(map(map_to_unicode, x))
+        return type(x)(map(map_to_unicode, x))
     x = x.encode("utf_8", "surrogateescape")
     for encoding in ENCODINGS:
         try:
