@@ -164,17 +164,6 @@ def on_window_key_press_event(window, event):
          event.keyval in (Gdk.KEY_w, Gdk.KEY_q))):
         destroy()
 
-def render_cell(column, renderer, store, itr, view):
-    """Set background color zebra-stripes."""
-    path = view.get_model().get_path(itr)
-    row = path.get_indices()[0]
-    if not hasattr(view, "zebra_color"):
-        view.zebra_color = get_zebra_color(view)
-    color = (view.zebra_color if row % 2 == 0 else None)
-    for column in view.get_columns():
-        for renderer in column.get_cells():
-            renderer.props.cell_background_rgba = color
-
 def parse_arguments():
     """Parse and return options and argument or exit."""
     usage = "csv-viewer [-g GEOMETRY] CSV_FILE"
@@ -191,6 +180,17 @@ def parse_arguments():
     if len(args) < 1 or not os.path.isfile(args[0]):
         raise SystemExit("Usage: {}".format(usage))
     return opts, args[0]
+
+def render_cell(column, renderer, store, itr, view):
+    """Set background color zebra-stripes."""
+    path = view.get_model().get_path(itr)
+    row = path.get_indices()[0]
+    if not hasattr(view, "zebra_color"):
+        view.zebra_color = get_zebra_color(view)
+    color = (view.zebra_color if row % 2 == 0 else None)
+    for column in view.get_columns():
+        for renderer in column.get_cells():
+            renderer.props.cell_background_rgba = color
 
 def set_headers(view, row):
     """Set `row` as column headers."""
