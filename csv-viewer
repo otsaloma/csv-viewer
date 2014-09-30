@@ -65,8 +65,8 @@ def init_column(n, view):
     column.props.resizable = True
     if n == 0:
         renderer.props.foreground = "#aaaaaa"
-        # Force zebra colors, since some themes ignore
-        # Gtk.TreeView.props.rules_hint.
+        # Force zebra colors, since Gtk.TreeView.props.rules_hint
+        # is deprecated and not supported by all themes.
         column.set_cell_data_func(renderer, render_cell, view)
     return column
 
@@ -74,7 +74,6 @@ def init_view(ncolumns):
     """Initialize and return a blank tree view."""
     view = Gtk.TreeView()
     view.props.rubber_banding = True
-    view.props.rules_hint = True
     selection = view.get_selection()
     selection.props.mode = Gtk.SelectionMode.MULTIPLE
     columns = [str for x in range(ncolumns)]
@@ -93,16 +92,16 @@ def init_window(title, geometry, view):
     scroller.add(view)
     scroller.show_all()
     window = Gtk.Window()
+    window.add(scroller)
     window.connect("delete-event", destroy)
     window.connect("key-press-event", on_window_key_press_event)
     window.set_title(title)
     window.set_position(Gtk.WindowPosition.CENTER)
     window.parse_geometry(geometry)
-    window.add(scroller)
     return window
 
 def load_chunk(reader, view):
-    """Load rows in `reader` to `view`."""
+    """Load rows from `reader` to `view`."""
     store = view.get_model()
     columns = view.get_columns()
     renderers = [x.get_cells()[0] for x in columns]
@@ -125,14 +124,14 @@ def load_chunk(reader, view):
 def main():
     """Parse arguments and display CSV file."""
     opts, path = parse_arguments()
-    fobj = open(file=path,
-                mode="r",
-                encoding=ENCODINGS[0],
-                errors="surrogateescape",
-                newline="")
+    f = open(file=path,
+             mode="r",
+             encoding=ENCODINGS[0],
+             errors="surrogateescape",
+             newline="")
 
-    dialect, has_header = sniff(fobj)
-    reader = csv.reader(fobj, dialect)
+    dialect, has_header = sniff(f)
+    reader = csv.reader(f, dialect)
     first_row = next(reader)
     view = init_view(len(first_row)+2)
     title = os.path.basename(path)
@@ -141,7 +140,7 @@ def main():
     if has_header:
         set_headers(view, first_row)
     else:
-        fobj.seek(0)
+        f.seek(0)
     loader = load_chunk(reader, view)
     GObject.idle_add(loader.__next__)
     Gtk.main()
@@ -203,11 +202,11 @@ def set_headers(view, row):
         column = view.get_column(i)
         column.props.title = title
 
-def sniff(fobj):
-    """Guess and return `fobj` dialect header."""
+def sniff(f):
+    """Guess and return `f` dialect header."""
     sniffer = csv.Sniffer()
-    sample = fobj.read(32768)
-    fobj.seek(0)
+    sample = f.read(32768)
+    f.seek(0)
     dialect = sniffer.sniff(sample)
     has_header = sniffer.has_header(sample)
     # XXX: Sniffer fails to detect the existance
