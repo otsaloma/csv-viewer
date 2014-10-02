@@ -31,7 +31,7 @@ import os
 import re
 
 from gi.repository import Gdk
-from gi.repository import GObject
+from gi.repository import GLib
 from gi.repository import Gtk
 
 ENCODINGS = ("utf_8", "cp1252", "latin_1")
@@ -142,7 +142,7 @@ def main():
     else:
         f.seek(0)
     loader = load_chunk(reader, view)
-    GObject.idle_add(loader.__next__)
+    GLib.idle_add(loader.__next__)
     Gtk.main()
 
 def map_to_unicode(x):
