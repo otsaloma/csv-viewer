@@ -1,5 +1,5 @@
 To install, run
 
-```sh
+```bash
 make PREFIX=... install
 ```
