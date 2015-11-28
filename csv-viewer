@@ -30,6 +30,10 @@ import optparse
 import os
 import re
 
+import gi
+gi.require_version("Gdk", "3.0")
+gi.require_version("Gtk", "3.0")
+
 from gi.repository import Gdk
 from gi.repository import GLib
 from gi.repository import Gtk
@@ -47,6 +51,8 @@ def destroy(*args):
 
 def get_zebra_color(view):
     """Return background color to use for `view` zebra-stripes."""
+    # TODO: Use CSS for zebra colors. Public named colors added in GTK+ 3.14.
+    # https://git.gnome.org/browse/gtk+/tree/gtk/theme/Adwaita
     style = view.get_style_context()
     fg = style.get_color(Gtk.StateFlags.NORMAL)
     bg = style.get_background_color(Gtk.StateFlags.NORMAL)
@@ -86,9 +92,7 @@ def init_view(ncolumns):
 def init_window(title, geometry, view):
     """Initialize and return a window."""
     scroller = Gtk.ScrolledWindow()
-    scroller.set_policy(Gtk.PolicyType.AUTOMATIC,
-                        Gtk.PolicyType.AUTOMATIC)
-
+    scroller.set_policy(*(Gtk.PolicyType.AUTOMATIC,)*2)
     scroller.add(view)
     scroller.show_all()
     window = Gtk.Window()
