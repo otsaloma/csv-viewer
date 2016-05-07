@@ -18,6 +18,7 @@
 
 """Viewer for tabular data files."""
 
+import atexit
 import contextlib
 import csv
 import optparse
@@ -138,6 +139,7 @@ def main():
              errors="surrogateescape",
              newline="")
 
+    atexit.register(f.close)
     # Sniffer could be used to detect the presence
     # of a header line, but seems to fail if all
     # columns hold strings.
