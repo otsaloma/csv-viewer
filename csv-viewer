@@ -34,12 +34,12 @@ from gi.repository import GLib
 from gi.repository import Gtk
 
 CSS = """
-GtkTreeView {
+.csv-view {
   color: #404444;
   font-family: "Droid Sans Mono",monospace;
   font-size: 10px;
 }
-GtkTreeView row:selected {
+.csv-view row:selected {
   color: white;
 }
 """
@@ -81,6 +81,7 @@ def init_view(ncolumns):
     provider = Gtk.CssProvider.get_default()
     provider.load_from_data(bytes(CSS.encode()))
     style = view.get_style_context()
+    style.add_class("csv-view")
     priority = Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
     style.add_provider_for_screen(Gdk.Screen.get_default(),
                                   provider,

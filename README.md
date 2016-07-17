@@ -9,8 +9,8 @@ maintaining a responsive user interface.
 
 ![Screenshot](http://dl.dropboxusercontent.com/u/39625783/csv-viewer-1.png)
 
-csv-viewer requires [Python][1] 3.0 or greater, [PyGObject][2] 3.0.0 or
-greater and [GTK+][3] 3.12 or greater.
+csv-viewer requires [Python][1] ≥ 3.0, [PyGObject][2] ≥ 3.0 and
+[GTK+][3] ≥ 3.12.
 
 [1]: http://www.python.org/
 [2]: http://wiki.gnome.org/Projects/PyGObject
