@@ -36,8 +36,8 @@ from gi.repository import Gtk
 CSS = """
 .csv-view {
   color: #404444;
-  font-family: "Droid Sans Mono",monospace;
-  font-size: 10px;
+  font-family: "Source Code Pro",monospace;
+  font-size: 12px;
 }
 .csv-view row:selected {
   color: white;
