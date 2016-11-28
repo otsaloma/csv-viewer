@@ -19,8 +19,8 @@
 """Viewer for tabular data files."""
 
 import atexit
-import contextlib
 import csv
+import locale
 import optparse
 import os
 import re
@@ -43,16 +43,10 @@ CSS = """
   color: white;
 }
 """
-ENCODINGS = ("utf_8", "cp1252", "latin_1")
+locale.setlocale(locale.LC_ALL, "")
+ENCODING = locale.getpreferredencoding() or "utf_8"
 RE_RIGHT_ALIGN = re.compile(r"^([\d\W]+( .*)?||NA|NAN|TRUE|FALSE)$", re.IGNORECASE)
 
-
-def destroy(*args):
-    """Exit."""
-    try:
-        Gtk.main_quit()
-    except RuntimeError:
-        raise SystemExit(1)
 
 def init_column(index, view):
     """Initialize and return a column."""
@@ -82,11 +76,9 @@ def init_view(ncolumns):
     provider.load_from_data(bytes(CSS.encode()))
     style = view.get_style_context()
     style.add_class("csv-view")
+    screen = Gdk.Screen.get_default()
     priority = Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-    style.add_provider_for_screen(Gdk.Screen.get_default(),
-                                  provider,
-                                  priority)
-
+    style.add_provider_for_screen(screen, provider, priority)
     selection = view.get_selection()
     selection.props.mode = Gtk.SelectionMode.MULTIPLE
     columns = [str for x in range(ncolumns)]
@@ -104,7 +96,7 @@ def init_window(title, geometry, view):
     scroller.show_all()
     window = Gtk.Window()
     window.add(scroller)
-    window.connect("delete-event", destroy)
+    window.connect("delete-event", Gtk.main_quit)
     window.connect("key-press-event", on_window_key_press_event)
     window.set_title(title)
     window.set_position(Gtk.WindowPosition.CENTER)
@@ -119,7 +111,6 @@ def load_chunk(reader, view):
     for i, row in enumerate(reader):
         row.insert(0, str(i+1))
         row.append("")
-        row = map_to_unicode(row)
         for j, item in enumerate(row):
             if (renderers[j].props.xalign > 0.5
                 and not RE_RIGHT_ALIGN.search(item)):
@@ -134,12 +125,7 @@ def load_chunk(reader, view):
 def main():
     """Parse arguments and display CSV file."""
     opts, path = parse_arguments()
-    f = open(file=path,
-             mode="r",
-             encoding=ENCODINGS[0],
-             errors="surrogateescape",
-             newline="")
-
+    f = open(path, "r", encoding=ENCODING, errors="replace")
     atexit.register(f.close)
     # Sniffer could be used to detect the presence
     # of a header line, but seems to fail if all
@@ -159,23 +145,12 @@ def main():
     GLib.idle_add(loader.__next__)
     Gtk.main()
 
-def map_to_unicode(x):
-    """Return `x` as Unicode strings."""
-    if isinstance(x, (list, tuple)):
-        return type(x)(map(map_to_unicode, x))
-    x = x.encode("utf_8", "surrogateescape")
-    for encoding in ENCODINGS:
-        with silent(UnicodeDecodeError):
-            return x.decode(encoding)
-    # If all encodings fail, return partial decode.
-    return x.decode(ENCODINGS[0], errors="replace")
-
 def on_window_key_press_event(window, event):
     """Exit if some exit key is pressed."""
     control = event.get_state() & Gdk.ModifierType.CONTROL_MASK
     if ((event.keyval == Gdk.KEY_Escape) or
         (control and event.keyval in (Gdk.KEY_w, Gdk.KEY_q))):
-        destroy()
+        Gtk.main_quit()
 
 def parse_arguments():
     """Parse and return options and argument or exit."""
@@ -209,21 +184,12 @@ def render_cell(column, renderer, store, itr, view):
 
 def set_headers(view, row):
     """Set `row` as column headers."""
-    row = map_to_unicode(row)
     row.insert(0, "#")
     row.append("")
     for i, title in enumerate(row):
         title = title.replace("_", "__")
         column = view.get_column(i)
         column.props.widget.set_text(title)
-
-@contextlib.contextmanager
-def silent(*exceptions):
-    """Try to execute body, ignoring `exceptions`."""
-    try:
-        yield
-    except exceptions:
-        pass
 
 
 if __name__ == "__main__":
