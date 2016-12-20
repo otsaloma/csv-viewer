@@ -161,7 +161,7 @@ def parse_arguments():
                       type="str",
                       metavar="GEOMETRY",
                       dest="geometry",
-                      default="800x494",
+                      default="1000x618",
                       help="Set geometry as WIDTHxHEIGHT[+XOFFSET+YOFFSET]")
 
     opts, args = parser.parse_args()
