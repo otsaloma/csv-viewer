@@ -39,7 +39,7 @@ CSS = """
   font-family: "Source Code Pro",monospace;
   font-size: 12px;
 }
-.csv-view row:selected {
+.csv-view :selected {
   color: white;
 }
 """
