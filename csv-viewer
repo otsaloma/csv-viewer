@@ -187,7 +187,6 @@ def set_headers(view, row):
     row.insert(0, "#")
     row.append("")
     for i, title in enumerate(row):
-        title = title.replace("_", "__")
         column = view.get_column(i)
         column.props.widget.set_text(title)
 
