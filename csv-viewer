@@ -88,7 +88,7 @@ def init_view(ncolumns):
         view.append_column(init_column(i, view))
     return view
 
-def init_window(title, geometry, view):
+def init_window(title, size, view):
     """Initialize and return a window."""
     scroller = Gtk.ScrolledWindow()
     scroller.set_policy(*(Gtk.PolicyType.AUTOMATIC,)*2)
@@ -100,7 +100,9 @@ def init_window(title, geometry, view):
     window.connect("key-press-event", on_window_key_press_event)
     window.set_title(title)
     window.set_position(Gtk.WindowPosition.CENTER)
-    window.parse_geometry(geometry)
+    if re.match(r"^\d+x\d+", size):
+        width, height = map(int, size.split("x"))
+        window.set_default_size(width, height)
     return window
 
 def load_chunk(reader, view):
@@ -138,7 +140,7 @@ def main():
     first_row = next(reader)
     view = init_view(len(first_row) + 2)
     title = os.path.basename(path)
-    window = init_window(title, opts.geometry, view)
+    window = init_window(title, opts.size, view)
     window.show_all()
     set_headers(view, first_row)
     loader = load_chunk(reader, view)
@@ -154,15 +156,15 @@ def on_window_key_press_event(window, event):
 
 def parse_arguments():
     """Parse and return options and argument or exit."""
-    usage = "csv-viewer [-g GEOMETRY] CSV_FILE"
+    usage = "csv-viewer [-s SIZE] CSV_FILE"
     parser = optparse.OptionParser(usage=usage)
-    parser.add_option("-g", "--geometry",
+    parser.add_option("-s", "--size",
                       action="store",
                       type="str",
-                      metavar="GEOMETRY",
-                      dest="geometry",
+                      metavar="SIZE",
+                      dest="size",
                       default="1000x618",
-                      help="Set geometry as WIDTHxHEIGHT[+XOFFSET+YOFFSET]")
+                      help="Set window size as WIDTHxHEIGHT")
 
     opts, args = parser.parse_args()
     if len(args) < 1 or not os.path.isfile(args[0]):
