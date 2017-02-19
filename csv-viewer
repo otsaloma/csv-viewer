@@ -100,7 +100,7 @@ def init_window(title, size, view):
     window.connect("key-press-event", on_window_key_press_event)
     window.set_title(title)
     window.set_position(Gtk.WindowPosition.CENTER)
-    if re.match(r"^\d+x\d+", size):
+    if re.match(r"^\d+x\d+$", size):
         width, height = map(int, size.split("x"))
         window.set_default_size(width, height)
     return window
