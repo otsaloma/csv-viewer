@@ -43,6 +43,7 @@ CSS = """
   color: white;
 }
 """
+
 locale.setlocale(locale.LC_ALL, "")
 ENCODING = locale.getpreferredencoding() or "utf_8"
 RE_RIGHT_ALIGN = re.compile(r"^([\d\W]+( .*)?||NA|NAN|TRUE|FALSE)$", re.IGNORECASE)
