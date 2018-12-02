@@ -1,9 +1,8 @@
 [Desktop Entry]
+Type=Application
 Name=CSV Viewer
 Comment=View CSV files
-Keywords=csv;data;
 Exec=csv-viewer %f
-Terminal=false
-StartupNotify=true
-Type=Application
 MimeType=text/csv;text/plain;
+Keywords=csv;data;
+StartupNotify=true
