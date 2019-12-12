@@ -11,7 +11,7 @@ look at a large file while maintaining a responsive user interface.
 To install, run
 
 ```bash
-make PREFIX=/usr/local install
+sudo make PREFIX=/usr/local install
 ```
 
 csv-viewer requires Python ≥ 3.0, PyGObject ≥ 3.0 and GTK+ ≥ 3.12.
