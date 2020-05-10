@@ -100,6 +100,11 @@ def init_window(title, size, view):
         window.set_default_size(width, height)
     return window
 
+def iter_lines(f):
+    for line in f:
+        if line.strip():
+            yield line
+
 def load_chunk(reader, view):
     store = view.get_model()
     columns = view.get_columns()
@@ -129,11 +134,11 @@ def main():
     f.seek(0)
     try:
         dialect = sniffer.sniff(sample)
-        reader = csv.reader(f, dialect)
+        reader = csv.reader(iter_lines(f), dialect)
     except Exception:
         print("Detecting dialect failed")
         print("Trying to open as a regular CSV file")
-        reader = csv.reader(f, delimiter=",")
+        reader = csv.reader(iter_lines(f), delimiter=",")
     first_row = next(reader)
     view = init_view(len(first_row) + 2)
     title = os.path.basename(path)
