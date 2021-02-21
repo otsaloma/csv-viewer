@@ -4,5 +4,6 @@ Name=CSV Viewer
 Comment=View CSV files
 Exec=csv-viewer %f
 MimeType=text/csv;text/plain;
+NoDisplay=true
 Keywords=csv;data;
 StartupNotify=true
