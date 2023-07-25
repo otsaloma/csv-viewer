@@ -100,7 +100,7 @@ class View(Gtk.ColumnView):
             return self.init_columns(*row)
         model = self.get_model().get_model()
         n = model.props.n_items + 1
-        model.append(Row(str(n), *row))
+        model.append(Row(f"{n:,}", *row))
 
 class Window(Gtk.Window):
 
