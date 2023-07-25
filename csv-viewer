@@ -17,179 +17,193 @@
 
 import atexit
 import csv
-import locale
-import optparse
-import os
-import re
+import sys
+
+from argparse import ArgumentParser
+from pathlib import Path
 
 import gi
-gi.require_version("Gdk", "3.0")
-gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "4.0")
+gi.require_version("Gio", "2.0")
+gi.require_version("GObject", "2.0")
+gi.require_version("Gtk", "4.0")
 
 from gi.repository import Gdk
+from gi.repository import Gio
 from gi.repository import GLib
+from gi.repository import GObject
 from gi.repository import Gtk
 
 CSS = """
 .csv-view {
-  color: #2e3436;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: monospace;
   font-size: 11px;
-}
-.csv-view :selected {
-  color: white;
-}
-"""
+}"""
 
-locale.setlocale(locale.LC_ALL, "")
-ENCODING = locale.getpreferredencoding() or "utf_8"
-RE_RIGHT_ALIGN = re.compile(r"^([\d\W]+( .*)?||NA|NAN|TRUE|FALSE)$", re.IGNORECASE)
+def set_margins(widget, margin):
+    widget.set_margin_bottom(margin)
+    widget.set_margin_end(margin)
+    widget.set_margin_start(margin)
+    widget.set_margin_top(margin)
 
+class Row(GObject.Object):
 
-def init_column(index, view):
-    renderer = Gtk.CellRendererText()
-    renderer.props.xalign = 1
-    renderer.props.xpad = 9
-    renderer.props.ypad = 9
-    renderer.set_fixed_height_from_font(1)
-    column = Gtk.TreeViewColumn(str(index), renderer, text=index)
-    column.props.resizable = True
-    if index == 0:
-        renderer.props.foreground = "#aaaaaa"
-        column.set_cell_data_func(renderer, render_cell, view)
-    label = Gtk.Label(label=str(index))
-    label.props.margin_start = 6
-    label.props.margin_end = 6
-    label.show()
-    column.props.widget = label
-    return column
+    def __init__(self, *values):
+        super().__init__()
+        self.values = values
 
-def init_view(ncolumns):
-    view = Gtk.TreeView()
-    view.props.rubber_banding = True
-    view.set_grid_lines(Gtk.TreeViewGridLines.BOTH)
-    provider = Gtk.CssProvider()
-    provider.load_from_data(bytes(CSS.encode()))
-    style = view.get_style_context()
-    style.add_class("csv-view")
-    screen = Gdk.Screen.get_default()
-    priority = Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-    style.add_provider_for_screen(screen, provider, priority)
-    selection = view.get_selection()
-    selection.props.mode = Gtk.SelectionMode.MULTIPLE
-    columns = [str for x in range(ncolumns)]
-    store = Gtk.ListStore(*columns)
-    view.props.model = store
-    for i in range(ncolumns):
-        view.append_column(init_column(i, view))
-    return view
+class View(Gtk.ColumnView):
 
-def init_window(title, size, view):
-    scroller = Gtk.ScrolledWindow()
-    scroller.set_policy(*(Gtk.PolicyType.AUTOMATIC,)*2)
-    scroller.add(view)
-    scroller.show_all()
-    window = Gtk.Window()
-    window.add(scroller)
-    window.connect("delete-event", Gtk.main_quit)
-    window.connect("key-press-event", on_window_key_press_event)
-    window.set_title(title)
-    window.set_position(Gtk.WindowPosition.CENTER)
-    if re.match(r"^\d+x\d+$", size):
-        width, height = map(int, size.split("x"))
-        window.set_default_size(width, height)
-    return window
+    MARGIN = 6
 
-def iter_lines(f):
-    for line in f:
-        if line.strip():
-            yield line
+    def __init__(self):
+        model = Gtk.MultiSelection(model=Gio.ListStore())
+        GObject.GObject.__init__(self, model=model)
+        self.add_css_class("csv-view")
+        self.set_enable_rubberband(True)
+        self.set_reorderable(False)
+        self.set_show_column_separators(True)
+        self.set_show_row_separators(True)
+        self.set_single_click_activate(False)
+        # TODO: Right-align, set margins. Requires GTK 4.12.
+        # factory = Gtk.SignalListItemFactory()
+        # factory.connect("setup", self.on_header_setup)
+        # factory.connect("bind", self.on_header_bind)
+        # self.set_header_factory(factory)
 
-def load_chunk(reader, view):
-    store = view.get_model()
-    columns = view.get_columns()
-    renderers = [x.get_cells()[0] for x in columns]
-    for i, row in enumerate(reader):
-        row.insert(0, str(i + 1))
-        row.append("")
-        for j, item in enumerate(row):
-            if (renderers[j].props.xalign > 0.5
-                and not RE_RIGHT_ALIGN.search(item)):
-                renderers[j].props.xalign = 0
-        store.append(row)
-        if i < 10 or i % 10 == 0:
-            while Gtk.events_pending():
-                Gtk.main_iteration()
-            yield True # to be called again.
-    yield False # to not be called again.
+    def init_columns(self, *headers):
+        headers = ("#",) + headers
+        for i, header in enumerate(headers):
+            factory = Gtk.SignalListItemFactory()
+            factory.connect("setup", self.on_list_item_setup)
+            factory.connect("bind", self.on_list_item_bind, i)
+            column = Gtk.ColumnViewColumn(title=header, factory=factory)
+            column.set_resizable(True)
+            self.append_column(column)
 
-def main():
-    opts, path = parse_arguments()
-    f = open(path, "r", encoding=ENCODING, errors="replace")
-    atexit.register(f.close)
-    # Sniffer could also be used to detect the presence of
-    # a header line, but fails if all columns hold strings.
-    sniffer = csv.Sniffer()
-    sample = f.read(32768)
-    f.seek(0)
-    try:
-        dialect = sniffer.sniff(sample)
-        reader = csv.reader(iter_lines(f), dialect)
-    except Exception:
-        print("Detecting dialect failed")
-        print("Trying to open as a regular CSV file")
-        reader = csv.reader(iter_lines(f), delimiter=",")
-    first_row = next(reader)
-    view = init_view(len(first_row) + 2)
-    title = os.path.basename(path)
-    window = init_window(title, opts.size, view)
-    window.show_all()
-    set_headers(view, first_row)
-    loader = load_chunk(reader, view)
-    GLib.idle_add(loader.__next__)
-    Gtk.main()
+    def on_list_item_setup(self, factory, item):
+        label = Gtk.Label()
+        label.set_halign(Gtk.Align.END)
+        label.set_selectable(False)
+        label.set_single_line_mode(True)
+        # TODO: Wait until we can set header margins too.
+        # set_margins(label, self.MARGIN)
+        item.set_child(label)
 
-def on_window_key_press_event(window, event):
-    control = event.get_state() & Gdk.ModifierType.CONTROL_MASK
-    if ((event.keyval == Gdk.KEY_Escape) or
-        (control and event.keyval in (Gdk.KEY_w, Gdk.KEY_q))):
-        Gtk.main_quit()
+    def on_list_item_bind(self, factory, item, i):
+        label = item.get_child()
+        value = item.get_item().values[i]
+        label.set_label(value)
 
-def parse_arguments():
-    usage = "csv-viewer [-s SIZE] CSV_FILE"
-    parser = optparse.OptionParser(usage=usage)
-    parser.add_option("-s", "--size",
-                      action="store",
-                      type="str",
-                      metavar="SIZE",
-                      dest="size",
-                      default="1000x618",
-                      help="Set window size as WIDTHxHEIGHT")
+    def append(self, *row):
+        if not self.get_columns():
+            return self.init_columns(*row)
+        model = self.get_model().get_model()
+        n = model.props.n_items + 1
+        model.append(Row(str(n), *row))
 
-    opts, args = parser.parse_args()
-    if len(args) < 1 or not os.path.isfile(args[0]):
-        raise SystemExit("Usage: {}".format(usage))
-    return opts, args[0]
+class Window(Gtk.Window):
 
-def render_cell(column, renderer, store, itr, view):
-    # XXX: Zebra stripes would be faster and cleaner done with CSS
-    # selectors :nth-child(odd) and :nth-child(even), but they don't
-    # seem to work, might even be deliberately broken.
-    # https://bugzilla.gnome.org/show_bug.cgi?id=709617#c1
-    path = view.get_model().get_path(itr)
-    row = path.get_indices()[0]
-    color = "#f2f2f2" if row % 2 == 0 else None
-    for column in view.get_columns():
-        for renderer in column.get_cells():
-            renderer.props.cell_background = color
+    def __init__(self, path, width, height):
+        GObject.GObject.__init__(self)
+        self.view = View()
+        self.set_default_size(width, height)
+        label = Gtk.Label()
+        label.set_justify(Gtk.Justification.CENTER)
+        label.set_markup(f"<b>{path.name}</b>\n<small>{path.resolve()}</small>")
+        header = Gtk.HeaderBar(title_widget=label)
+        self.set_titlebar(header)
+        scroller = Gtk.ScrolledWindow()
+        scroller.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        scroller.set_child(self.view)
+        self.set_child(scroller)
+        self.load_css()
+        controller = Gtk.EventControllerKey()
+        controller.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+        self.add_controller(controller)
+        controller.connect("key-pressed", self.on_key_pressed)
 
-def set_headers(view, row):
-    row.insert(0, "#")
-    row.append("")
-    for i, title in enumerate(row):
-        column = view.get_column(i)
-        column.props.widget.set_text(title)
+    def load_css(self):
+        style = self.get_style_context()
+        priority = Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        provider = Gtk.CssProvider()
+        try:
+            # The call signature of 'load_from_data' seems to have changed
+            # in some GTK version. Also, the whole function is deprecated
+            # and since GTK 4.12 we should use 'load_from_string'.
+            provider.load_from_data(CSS, -1)
+        except Exception:
+            provider.load_from_data(bytes(CSS.encode()))
+        display = Gdk.Display.get_default()
+        style.add_provider_for_display(display, provider, priority)
 
+    def on_key_pressed(self, event_controller_key, keyval, keycode, state, user_data=None):
+        if keyval == Gdk.KEY_Escape:
+            self.close()
+            return True
+        control = state & Gdk.ModifierType.CONTROL_MASK
+        if control and keyval in [Gdk.KEY_w, Gdk.KEY_q]:
+            self.close()
+            return True
+
+class Application(Gtk.Application):
+
+    def __init__(self, args):
+        GObject.GObject.__init__(self)
+        self.window = None
+        self.set_flags(Gio.ApplicationFlags.NON_UNIQUE)
+        self.connect("activate", self.on_activate, args)
+
+    def on_activate(self, app, args):
+        args = self.parse_arguments(args)
+        self.window = Window(args.path, *args.size)
+        self.add_window(self.window)
+        self.window.set_visible(True)
+        self.render(args.path)
+
+    def parse_arguments(self, args):
+        parser = ArgumentParser(usage="csv-viewer [-s SIZE] FILE")
+        parser.add_argument("-s",
+                            "--size",
+                            action="store",
+                            dest="size",
+                            default="1000x618",
+                            help="window size as WIDTHxHEIGHT")
+
+        parser.add_argument("FILE")
+        args = parser.parse_args()
+        args.size = list(map(int, args.size.split("x")))
+        args.path = Path(args.FILE)
+        assert args.path.exists()
+        return args
+
+    def iter_lines(self, f):
+        for line in f:
+            if line := line.strip():
+                yield line
+
+    def render(self, path):
+        f = open(path, "r", encoding="utf-8", errors="replace")
+        atexit.register(f.close)
+        # Sniffer could also be used to detect the presence of
+        # a header line, but fails if all columns hold strings.
+        sniffer = csv.Sniffer()
+        sample = f.read(32768)
+        f.seek(0)
+        try:
+            dialect = sniffer.sniff(sample)
+            reader = csv.reader(self.iter_lines(f), dialect)
+        except Exception:
+            print("Detecting dialect failed")
+            print("Trying to open as a regular CSV file")
+            reader = csv.reader(self.iter_lines(f), delimiter=",")
+        main_context = GLib.MainContext.default()
+        for i, row in enumerate(reader):
+            GLib.idle_add(self.window.view.append, *row)
+            if i < 10 or i % 10 == 0:
+                while main_context.pending():
+                    main_context.iteration()
 
 if __name__ == "__main__":
-    main()
+    app = Application(sys.argv[1:])
+    raise SystemExit(app.run())
