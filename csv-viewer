@@ -159,10 +159,18 @@ class Application(Gtk.Application):
         self.window = Window(args.path, *args.size)
         self.add_window(self.window)
         self.window.set_visible(True)
-        self.render(args.path)
+        self.render(args.path, args.limit)
 
     def parse_arguments(self, args):
         parser = ArgumentParser(usage="csv-viewer [-s SIZE] FILE")
+        parser.add_argument("-l",
+                            "--limit",
+                            action="store",
+                            dest="limit",
+                            default=100_000,
+                            type=int,
+                            help="maximum amount of rows to load")
+
         parser.add_argument("-s",
                             "--size",
                             action="store",
@@ -182,7 +190,7 @@ class Application(Gtk.Application):
             if line := line.strip():
                 yield line
 
-    def render(self, path):
+    def render(self, path, limit):
         f = open(path, "r", encoding="utf-8", errors="replace")
         atexit.register(f.close)
         # Sniffer could also be used to detect the presence of
@@ -199,6 +207,7 @@ class Application(Gtk.Application):
             reader = csv.reader(self.iter_lines(f), delimiter=",")
         main_context = GLib.MainContext.default()
         for i, row in enumerate(reader):
+            if i > limit: break
             GLib.idle_add(self.window.view.append, *row)
             if i < 10 or i % 10 == 0:
                 while main_context.pending():
