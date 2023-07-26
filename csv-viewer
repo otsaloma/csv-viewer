@@ -162,7 +162,7 @@ class Application(Gtk.Application):
         self.render(args.path, args.limit)
 
     def parse_arguments(self, args):
-        parser = ArgumentParser(usage="csv-viewer [-s SIZE] FILE")
+        parser = ArgumentParser(usage="csv-viewer [OPTION...] FILE")
         parser.add_argument("-l",
                             "--limit",
                             action="store",
