@@ -1,5 +1,4 @@
-csv-viewer
-==========
+# csv-viewer
 
 csv-viewer is a viewer for tabular data files. Files are expected to
 include column headers. Column separators (comma, semicolon etc.) are
@@ -15,4 +14,4 @@ To install, run
 sudo make PREFIX=/usr/local install
 ```
 
-csv-viewer requires Python 3.x and GTK 4.x.
+csv-viewer requires Python ≥3.6 and GTK ≥4.12.
