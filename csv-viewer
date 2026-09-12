@@ -16,7 +16,6 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import csv
-import sys
 
 from argparse import ArgumentParser
 from itertools import islice
@@ -124,35 +123,10 @@ class Application(Gtk.Application):
         self.connect("activate", self.on_activate, args)
 
     def on_activate(self, app, args):
-        args = self.parse_arguments(args)
         self.window = Window(args.path, *args.size)
         self.add_window(self.window)
         self.window.set_visible(True)
         self.load(args.path, args.limit)
-
-    def parse_arguments(self, args):
-        parser = ArgumentParser(usage="csv-viewer [OPTION...] FILE")
-        parser.add_argument("-l",
-                            "--limit",
-                            action="store",
-                            dest="limit",
-                            default=100_000,
-                            type=int,
-                            help="maximum amount of rows to load")
-
-        parser.add_argument("-s",
-                            "--size",
-                            action="store",
-                            dest="size",
-                            default="1000x618",
-                            help="window size as WIDTHxHEIGHT")
-
-        parser.add_argument("FILE")
-        args = parser.parse_args()
-        args.size = list(map(int, args.size.split("x")))
-        args.path = Path(args.FILE)
-        assert args.path.exists()
-        return args
 
     def load(self, path, limit):
         with open(path, "r", encoding="utf-8", errors="replace") as f:
@@ -177,6 +151,25 @@ class Application(Gtk.Application):
                     while main_context.pending():
                         main_context.iteration()
 
+def parse_arguments():
+    parser = ArgumentParser(usage="csv-viewer [OPTION...] FILE")
+    parser.add_argument("-l",
+                        "--limit",
+                        default=100_000,
+                        type=int,
+                        help="maximum amount of rows to load")
+
+    parser.add_argument("-s",
+                        "--size",
+                        default="1000x618",
+                        help="window size as WIDTHxHEIGHT")
+
+    parser.add_argument("path", metavar="FILE", type=Path)
+    args = parser.parse_args()
+    args.size = list(map(int, args.size.split("x")))
+    assert args.path.exists()
+    return args
+
 if __name__ == "__main__":
-    app = Application(sys.argv[1:])
+    app = Application(parse_arguments())
     raise SystemExit(app.run())
