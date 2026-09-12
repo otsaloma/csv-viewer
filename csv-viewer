@@ -119,12 +119,9 @@ class Window(Gtk.Window):
         display = Gdk.Display.get_default()
         style.add_provider_for_display(display, provider, priority)
 
-    def on_key_pressed(self, event_controller_key, keyval, keycode, state, user_data=None):
-        if keyval == Gdk.KEY_Escape:
-            self.close()
-            return True
+    def on_key_pressed(self, event_controller_key, keyval, keycode, state):
         control = state & Gdk.ModifierType.CONTROL_MASK
-        if control and keyval in [Gdk.KEY_w, Gdk.KEY_q]:
+        if keyval == Gdk.KEY_Escape or (control and keyval in [Gdk.KEY_w, Gdk.KEY_q]):
             self.close()
             return True
 
