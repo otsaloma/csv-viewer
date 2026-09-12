@@ -40,12 +40,6 @@ CSS = """
   font-size: 11px;
 }"""
 
-def set_margins(widget, margin):
-    widget.set_margin_bottom(margin)
-    widget.set_margin_end(margin)
-    widget.set_margin_start(margin)
-    widget.set_margin_top(margin)
-
 class Row(GObject.Object):
 
     def __init__(self, *values):
@@ -53,8 +47,6 @@ class Row(GObject.Object):
         self.values = values
 
 class View(Gtk.ColumnView):
-
-    MARGIN = 6
 
     def __init__(self):
         model = Gtk.MultiSelection(model=Gio.ListStore())
@@ -64,11 +56,6 @@ class View(Gtk.ColumnView):
         self.set_reorderable(False)
         self.set_show_column_separators(True)
         self.set_show_row_separators(True)
-        # TODO: Right-align, set margins. Requires GTK 4.12.
-        # factory = Gtk.SignalListItemFactory()
-        # factory.connect("setup", self.on_header_setup)
-        # factory.connect("bind", self.on_header_bind)
-        # self.set_header_factory(factory)
 
     def init_columns(self, *headers):
         headers = ("#",) + headers
@@ -84,8 +71,6 @@ class View(Gtk.ColumnView):
         label = Gtk.Label()
         label.set_halign(Gtk.Align.END)
         label.set_single_line_mode(True)
-        # TODO: Wait until we can set header margins too.
-        # set_margins(label, self.MARGIN)
         item.set_child(label)
 
     def on_list_item_bind(self, factory, item, i):
