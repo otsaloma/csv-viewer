@@ -15,11 +15,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-import atexit
 import csv
 import sys
 
 from argparse import ArgumentParser
+from itertools import islice
 from pathlib import Path
 
 import gi
@@ -156,33 +156,27 @@ class Application(Gtk.Application):
         assert args.path.exists()
         return args
 
-    def iter_lines(self, f):
-        for line in f:
-            if line := line.strip():
-                yield line
-
     def load(self, path, limit):
-        f = open(path, "r", encoding="utf-8", errors="replace")
-        atexit.register(f.close)
-        # Sniffer could also be used to detect the presence of
-        # a header line, but fails if all columns hold strings.
-        sniffer = csv.Sniffer()
-        sample = f.read(32768)
-        f.seek(0)
-        try:
-            dialect = sniffer.sniff(sample)
-            reader = csv.reader(self.iter_lines(f), dialect)
-        except Exception:
-            print("Detecting dialect failed")
-            print("Trying to open as a regular CSV file")
-            reader = csv.reader(self.iter_lines(f), delimiter=",")
-        main_context = GLib.MainContext.default()
-        for i, row in enumerate(reader):
-            if i > limit: break
-            GLib.idle_add(self.window.view.append, *row)
-            if i < 10 or i % 10 == 0:
-                while main_context.pending():
-                    main_context.iteration()
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            # Sniffer could also be used to detect the presence of
+            # a header line, but fails if all columns hold strings.
+            sniffer = csv.Sniffer()
+            sample = f.read(32768)
+            f.seek(0)
+            lines = filter(None, map(str.strip, f))
+            try:
+                dialect = sniffer.sniff(sample)
+                reader = csv.reader(lines, dialect)
+            except Exception:
+                print("Detecting dialect failed")
+                print("Trying to open as a regular CSV file")
+                reader = csv.reader(lines, delimiter=",")
+            main_context = GLib.MainContext.default()
+            for i, row in enumerate(islice(reader, limit + 1)):
+                GLib.idle_add(self.window.view.append, *row)
+                if i < 10 or i % 10 == 0:
+                    while main_context.pending():
+                        main_context.iteration()
 
 if __name__ == "__main__":
     app = Application(sys.argv[1:])
