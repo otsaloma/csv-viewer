@@ -64,7 +64,6 @@ class View(Gtk.ColumnView):
         self.set_reorderable(False)
         self.set_show_column_separators(True)
         self.set_show_row_separators(True)
-        self.set_single_click_activate(False)
         # TODO: Right-align, set margins. Requires GTK 4.12.
         # factory = Gtk.SignalListItemFactory()
         # factory.connect("setup", self.on_header_setup)
@@ -84,7 +83,6 @@ class View(Gtk.ColumnView):
     def on_list_item_setup(self, factory, item):
         label = Gtk.Label()
         label.set_halign(Gtk.Align.END)
-        label.set_selectable(False)
         label.set_single_line_mode(True)
         # TODO: Wait until we can set header margins too.
         # set_margins(label, self.MARGIN)
@@ -114,7 +112,6 @@ class Window(Gtk.Window):
         header = Gtk.HeaderBar(title_widget=label)
         self.set_titlebar(header)
         scroller = Gtk.ScrolledWindow()
-        scroller.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         scroller.set_child(self.view)
         self.set_child(scroller)
         self.load_css()
