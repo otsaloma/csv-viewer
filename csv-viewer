@@ -79,8 +79,6 @@ class View(Gtk.ColumnView):
         label.set_label(value)
 
     def append(self, *row):
-        if not self.get_columns():
-            return self.init_columns(*row)
         model = self.get_model().get_model()
         n = model.props.n_items + 1
         model.append(Row(f"{n:,}", *row))
@@ -172,8 +170,9 @@ class Application(Gtk.Application):
                 print("Trying to open as a regular CSV file")
                 reader = csv.reader(lines, delimiter=",")
             main_context = GLib.MainContext.default()
+            view = self.window.view
             for i, row in enumerate(islice(reader, limit + 1)):
-                GLib.idle_add(self.window.view.append, *row)
+                GLib.idle_add(view.append if i else view.init_columns, *row)
                 if i < 10 or i % 10 == 0:
                     while main_context.pending():
                         main_context.iteration()
