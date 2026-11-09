@@ -49,7 +49,7 @@ class View(Gtk.ColumnView):
 
     def __init__(self):
         model = Gtk.MultiSelection(model=Gio.ListStore())
-        GObject.GObject.__init__(self, model=model)
+        super().__init__(model=model)
         self.add_css_class("csv-view")
         self.set_enable_rubberband(True)
         self.set_reorderable(False)
@@ -85,7 +85,7 @@ class View(Gtk.ColumnView):
 class Window(Gtk.Window):
 
     def __init__(self, path, width, height):
-        GObject.GObject.__init__(self)
+        super().__init__()
         self.view = View()
         self.set_default_size(width, height)
         label = Gtk.Label()
@@ -117,16 +117,15 @@ class Window(Gtk.Window):
 class Application(Gtk.Application):
 
     def __init__(self, args):
-        GObject.GObject.__init__(self)
+        super().__init__(flags=Gio.ApplicationFlags.NON_UNIQUE)
+        self.args = args
         self.window = None
-        self.set_flags(Gio.ApplicationFlags.NON_UNIQUE)
-        self.connect("activate", self.on_activate, args)
 
-    def on_activate(self, app, args):
-        self.window = Window(args.path, *args.size)
+    def do_activate(self):
+        self.window = Window(self.args.path, *self.args.size)
         self.add_window(self.window)
         self.window.set_visible(True)
-        self.load(args.path, args.limit)
+        self.load(self.args.path, self.args.limit)
 
     def load(self, path, limit):
         with open(path, "r", encoding="utf-8", errors="replace") as f:
