@@ -97,10 +97,6 @@ class Window(Gtk.Window):
         scroller.set_child(self.view)
         self.set_child(scroller)
         self.load_css()
-        controller = Gtk.EventControllerKey()
-        controller.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
-        self.add_controller(controller)
-        controller.connect("key-pressed", self.on_key_pressed)
 
     def load_css(self):
         provider = Gtk.CssProvider()
@@ -108,18 +104,13 @@ class Window(Gtk.Window):
         priority = Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), provider, priority)
 
-    def on_key_pressed(self, event_controller_key, keyval, keycode, state):
-        control = state & Gdk.ModifierType.CONTROL_MASK
-        if keyval == Gdk.KEY_Escape or (control and keyval in [Gdk.KEY_w, Gdk.KEY_q]):
-            self.close()
-            return True
-
 class Application(Gtk.Application):
 
     def __init__(self, args):
         super().__init__(flags=Gio.ApplicationFlags.NON_UNIQUE)
         self.args = args
         self.window = None
+        self.set_accels_for_action("window.close", ["Escape", "<Control>w", "<Control>q"])
 
     def do_activate(self):
         self.window = Window(self.args.path, *self.args.size)
