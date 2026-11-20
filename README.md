@@ -14,4 +14,4 @@ To install, run
 sudo make PREFIX=/usr/local install
 ```
 
-csv-viewer requires Python ≥3.6 and GTK ≥4.12.
+csv-viewer requires Python ≥3.8 and GTK ≥4.12.

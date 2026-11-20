@@ -77,10 +77,10 @@ class View(Gtk.ColumnView):
         value = item.get_item().values[i]
         label.set_label(value)
 
-    def append(self, *row):
+    def append(self, rows):
         model = self.get_model().get_model()
-        n = model.props.n_items + 1
-        model.append(Row(f"{n:,}", *row))
+        n = model.get_n_items()
+        model.splice(n, 0, [Row(f"{i:,}", *row) for i, row in enumerate(rows, n + 1)])
 
 class Window(Gtk.Window):
 
@@ -125,7 +125,8 @@ class Application(Gtk.Application):
         self.window = Window(self.args.path, *self.args.size)
         self.add_window(self.window)
         self.window.set_visible(True)
-        self.load(self.args.path, self.args.limit)
+        loader = self.load(self.args.path, self.args.limit)
+        GLib.idle_add(next, loader, False)
 
     def load(self, path, limit):
         with open(path, "r", encoding="utf-8", errors="replace") as f:
@@ -142,13 +143,11 @@ class Application(Gtk.Application):
                 print("Detecting dialect failed")
                 print("Trying to open as a regular CSV file")
                 reader = csv.reader(lines, delimiter=",")
-            main_context = GLib.MainContext.default()
-            view = self.window.view
-            for i, row in enumerate(islice(reader, limit + 1)):
-                GLib.idle_add(view.append if i else view.init_columns, *row)
-                if i < 10 or i % 10 == 0:
-                    while main_context.pending():
-                        main_context.iteration()
+            rows = islice(reader, limit + 1)
+            self.window.view.init_columns(*next(rows, ()))
+            while batch := list(islice(rows, 1000)):
+                self.window.view.append(batch)
+                yield True
 
 def parse_arguments():
     parser = ArgumentParser(usage="csv-viewer [OPTION...] FILE")
